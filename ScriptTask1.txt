@@ -1,0 +1,118 @@
+#!/bin/bash
+file=$1
+IFS=";"
+
+amount=$(wc -l < $file)
+echo "You will add $amount users from $1, proceed?"
+read -p "(yes/no) " answer
+echo
+if [[ $answer == "Yes" || $answer == "yes" ]]; then
+
+echo >> userLog.txt
+echo "Add users">> userLog.txt
+(TZ="NZ" date) >> userLog.txt #add current time stamp to userLog
+
+while read email dob groupys folder
+do
+
+echo "$email    $dob  $groupys $folder"
+#create username
+lastName=$(echo $email | awk -F '[@.]' '{print $2}')
+username=${email:0:1}$lastName
+#create password
+password=$(echo $dob |awk -F '[/;]' '{print $2.$1}')
+
+#create first group (if not exist)
+group=$(echo $groupys | awk -F '[.]' '{print $1}')
+grep -q "\b$fgroup\b" /etc/group>> /dev/null
+if [ $? -eq 0 ];then
+echo >> /dev/null
+else
+echo >> /dev/null
+sudo groupadd -f "$fgroup"
+fi
+
+#create secondary group (if not exist)
+sgroup=$(echo $groupys | awk -F '[,]' '{print $2}')
+grep -q "\b$sgroup\b" /etc/group >> /dev/null
+if [ $? -eq 0 ] ;then
+echo >> /dev/null
+else
+echo >> /dev/null
+sudo groupadd -f $sgroup
+fi
+
+#creare users
+if [ -z "$groupys" ]
+then
+useradd -d /home/$username -m -s /bin/bash $username
+else
+useradd -d /home/$username -m -s /bin/bash -G $groupys $username
+fi
+
+#create password for user and force change on first login
+echo $username:$password | chpasswd
+chage --lastday 0 $username
+
+#separate groups
+Groups=$(echo $groupys | awk -F '[,]' '{print $1,$2}')
+
+echo "Added user $username, with the password $password, in group(s) $Groups"
+echo "Added user $username, with the password $password, group(s) $Groups" >> userlog.txt
+
+#create sharefolder group
+if [ -z "$folder" ]
+then
+echo "Not a part of folder group" >> userLog.txt
+else
+#creating specified name for shareGroup dependent in folder
+share=$(echo $folder | awk -F '[/]' '{print $2}')
+shared=${share::-4}
+shareGroup=${share::-3}
+sudo groupadd -f $shareGroup
+sudo usermod -a -G $shareGroup $username
+echo "Folder group is $shareGroup">> userLog.txt
+fi
+
+#Create shared folder
+if [ -d "$folder" ] || [ -z "$folder" ]
+then
+echo >> /dev/null
+else
+echo >> /dev/null
+sudo mkdir -m 770 $folder
+sudo chgrp -R $shareGroup $folder
+fi
+
+#create symbolic link for sudo users
+if [ -z "$folder" ]
+then
+echo "no shared folder" >> userLog.txt
+else
+sudo ln -s $folder /home/$username/shared
+fi
+
+#create alias for sudo
+if getent group sudo | grep -q "\b${username}\b";
+then
+echo "User is part of sudo" >> userLog.txt
+touch /home/$username/.bash_aliases
+sudo chown $username /home/$username/.bash_aliases
+sudo chmod 700 /home/$username/.bash_aliases
+
+echo "alias myls='ls -lisa'" >> /home/$username/.bash_aliases
+source /home/$username/.bash_aliases
+else
+echo "user is not part of sudo" >> userLog.txt
+fi
+
+echo
+echo >> userLog.txt
+
+#finish reading the file
+done < $file
+
+else
+echo ""
+echo "Users not added"
+fi

@@ -1,0 +1,38 @@
+#!/bin/bash
+# Set variable for remote server information
+remoteserv="enter a server"
+remotedir="enter directory"
+portnumb="enter port number"
+if [ $# -eq 1 ]; then
+if [ ! -d $1 ]; then
+echo "Directory not found:$1"
+echo "Exit"
+exit 1
+fi
+else
+exit 1;
+fi
+sourceDir=$1
+targzFile=${sourceDir##*/}.tar.gz
+echo "Backup Directory:${sourceDir}"
+echo "compressed filename:${targzFile}"
+echo "Remote Server:${remoteserv}"
+echo "Server Directory:${remotedir}"
+#--------------------------------------
+# Backup process start
+
+echo "-----------------------------------"
+echo "Backup process starts"
+echo ">> Compressing files"
+#sudo tar czf ${targzFile} ${sourceDir} 2> /dev/null >&1
+sudo tar czf ${targzFile} ${sourceDir} 2> /dev/null >&1
+echo "-----------------------------------"
+echo ">> Copy backup file to remote server"
+#sudo scp -P 22 ${targzFile} ${remoteserv} "${remotedir}" 2> /dev/null >&1 # For local to local test
+sudo scp -P ${portnumb} ${targzFile} ${remoteserv}:"${remotedir}" 2> /dev/null >&1
+#sudo scp -P ${portnumb} ${targzFile} ${remoteserv}:"${remotedir}" 
+if [[ $? -ne 0 ]]; then
+echo "Backup failed"
+else
+echo "Backup completed"
+fi
